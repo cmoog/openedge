@@ -1,0 +1,9 @@
+[package]
+name = "deno-edge"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+deno_runtime = "0.78.0"
+hyper = { version = "0.14", features = ["full"] }
+tokio = { version = "1.19.2", features = ["full"] }

@@ -1,0 +1,12 @@
+app = "deno-edge"
+
+[build]
+image = "deno-edge:latest"
+
+[[services]]
+internal_port = 8080
+protocol = "tcp"
+
+[[services.ports]]
+handlers = ["http"]
+port = 80

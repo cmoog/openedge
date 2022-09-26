@@ -5,15 +5,16 @@ use deno_runtime::deno_core::{self, ModuleSpecifier};
 use hyper::server::conn::Http;
 use hyper::service::service_fn;
 use hyper::{Body, Request, Response};
+use std::cell::RefCell;
 use std::collections::{BTreeSet, HashMap};
 use std::net::{IpAddr, Ipv4Addr};
-use std::sync::{Arc, Mutex};
+use std::rc::Rc;
 use std::{convert::Infallible, net::SocketAddr};
 use tokio::net::TcpListener;
 
 pub mod loader;
 pub mod permissions;
-pub mod router;
+pub mod store;
 pub mod worker;
 
 async fn handle(
@@ -24,7 +25,7 @@ async fn handle(
     match req.headers().get("host") {
         Some(host) => {
             let host = match host.to_str() {
-                Ok(h) => { h }
+                Ok(h) => h,
                 Err(_e) => {
                     return Ok(Response::builder()
                         .status(500)
@@ -36,15 +37,18 @@ async fn handle(
                 match state.get_existing_worker_port(host) {
                     Some(port) => Worker { port },
                     None => {
-                        let main_module = deno_core::resolve_path(format!("{}.js", host).as_str())
-                            .expect("handle");
+                        let main_module = match state.store.hostname_to_module(host.to_string()) {
+                            Ok(m) => m,
+                            Err(_e) => {
+                                return Ok(Response::builder()
+                                    .status(500)
+                                    .body("invalid host header".into())
+                                    .unwrap())
+                            }
+                        };
                         match startup_new_worker(&mut state, main_module).await {
                             Ok(w) => {
-                                {
-                                    let mut runners = state.running.lock().unwrap();
-                                    runners.insert(host.to_string(), w.clone());
-                                    drop(runners);
-                                };
+                                state.register_new_running_worker(host, w.clone());
                                 w
                             }
                             Err(e) => {
@@ -101,29 +105,33 @@ async fn startup_new_worker(
 #[derive(Clone, Debug)]
 struct Worker {
     port: u16,
-    // module: ModuleSpecifier,
 }
 
+// TODO: fix this entire abstraction
 #[derive(Clone, Debug)]
 struct Workers {
-    running: Arc<Mutex<HashMap<String, Worker>>>,
-    available_ports: Arc<Mutex<BTreeSet<u16>>>,
+    running: Rc<RefCell<HashMap<String, Worker>>>,
+    available_ports: Rc<RefCell<BTreeSet<u16>>>,
+    store: store::Store,
 }
 
 impl Workers {
+    fn register_new_running_worker(&self, hostname: &str, worker: Worker) {
+        self.running
+            .borrow_mut()
+            .insert(hostname.to_string(), worker);
+    }
     fn take_available_port(&mut self) -> Option<u16> {
-        let mut ports = self.available_ports.lock().unwrap();
-        let next_port = match ports.iter().next().cloned() {
+        let next_port = match self.available_ports.borrow().iter().next().cloned() {
             Some(p) => p,
             None => return None,
         };
-        ports.take(&next_port);
+        self.available_ports.borrow_mut().take(&next_port);
         Some(next_port)
     }
 
     fn get_existing_worker_port(&self, hostname: &str) -> Option<u16> {
-        let running_workers = self.running.lock().unwrap();
-        match running_workers.get(hostname) {
+        match self.running.borrow().get(hostname) {
             Some(w) => Some(w.port),
             None => None,
         }
@@ -139,19 +147,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     local.block_on(
         &rt,
         // TODO: rm need for panic
-        startup_ingress().map_err(|_| panic!("failed to startup ingress")),
+        startup_ingress().map_err(|e| panic!("failed to startup ingress: {e}")),
     )
 }
 
 async fn startup_ingress() -> Result<(), AnyError> {
+    let mut store = store::Store::default();
+    store.register_module("hello".to_string(), deno_core::resolve_path("./hello.js")?);
+    store.register_module(
+        "goodbye".to_string(),
+        deno_core::resolve_path("./goodbye.js")?,
+    );
+    store.register_module("nice".to_string(), deno_core::resolve_path("./goodbye.js")?);
+
     let state = Workers {
-        running: Arc::new(Mutex::new(HashMap::new())),
-        available_ports: Arc::new(Mutex::new(BTreeSet::new())),
-    };
-    {
-        let mut ports = state.available_ports.lock().unwrap();
-        ports.insert(9090);
-        ports.insert(8888);
+        running: Rc::new(RefCell::new(HashMap::new())),
+        available_ports: Rc::new(RefCell::new(BTreeSet::from([8888, 9999, 8081]))),
+        store,
     };
 
     let addr: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 8080);
@@ -175,16 +187,14 @@ async fn startup_ingress() -> Result<(), AnyError> {
     }
 }
 
-// configure an Executor that can spawn !Send futures
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone)]
 struct LocalExec;
 
 impl<F> hyper::rt::Executor<F> for LocalExec
 where
-    F: std::future::Future + 'static,
+    F: std::future::Future + 'static, // !Send
 {
     fn execute(&self, fut: F) {
-        // This will spawn into the currently running `LocalSet`.
         tokio::task::spawn_local(fut);
     }
 }

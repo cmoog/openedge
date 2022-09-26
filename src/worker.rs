@@ -62,11 +62,19 @@ pub fn instance(main_module: ModuleSpecifier, port: u16) -> Result<MainWorker, A
 
     let permissions = crate::permissions::permissions(port);
     let mut worker = MainWorker::bootstrap_from_options(main_module, permissions, options);
-    
-    inject_environment_variables(&mut worker, vec![
-        ("REGION", std::env::var("FLY_REGION").unwrap_or("UNKNOWN".to_string()).as_str()),
-        ("PORT", format!("{}", port).as_str())
-    ])?;
+
+    inject_environment_variables(
+        &mut worker,
+        vec![
+            (
+                "REGION",
+                std::env::var("FLY_REGION")
+                    .unwrap_or("UNKNOWN".to_string())
+                    .as_str(),
+            ),
+            ("PORT", format!("{}", port).as_str()),
+        ],
+    )?;
 
     Ok(worker)
 }
@@ -103,7 +111,8 @@ fn inject_environment_variables<'a, T: IntoIterator<Item = (&'a str, &'a str)>>(
             {properties}
           }};
         }},
-      }};");
+      }};"
+    );
     worker.execute_script("bootstrap_environment_variables.js", script.as_str())?;
     Ok(())
 }

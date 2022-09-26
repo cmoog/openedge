@@ -16,4 +16,5 @@ RUN cargo build --release --bin deno-edge
 FROM rust:1.64-slim
 COPY --from=builder /deno-edge/target/release/deno-edge /bin/deno-edge
 COPY ./hello.js ./
+COPY ./goodbye.js ./
 CMD [ "/bin/deno-edge" ]

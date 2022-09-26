@@ -18,7 +18,7 @@ fn get_error_class_name(e: &AnyError) -> &'static str {
     deno_runtime::errors::get_error_class_name(e).unwrap_or("Error")
 }
 
-pub fn instance(main_module: ModuleSpecifier) -> Result<MainWorker, AnyError> {
+pub fn instance(main_module: ModuleSpecifier, port: u16) -> Result<MainWorker, AnyError> {
     let module_loader = Rc::new(OnlyMainModuleLoader::new());
     let create_web_worker_cb = Arc::new(|_| unimplemented!());
     let web_worker_event_cb = Arc::new(|_| unimplemented!());
@@ -60,13 +60,12 @@ pub fn instance(main_module: ModuleSpecifier) -> Result<MainWorker, AnyError> {
         stdio: Default::default(),
     };
 
-    let permissions = crate::permissions::permissions(8080);
+    let permissions = crate::permissions::permissions(port);
     let mut worker = MainWorker::bootstrap_from_options(main_module, permissions, options);
-
     
     inject_environment_variables(&mut worker, vec![
         ("REGION", std::env::var("FLY_REGION").unwrap_or("UNKNOWN".to_string()).as_str()),
-        ("PORT", "8080")
+        ("PORT", format!("{}", port).as_str())
     ])?;
 
     Ok(worker)
@@ -80,7 +79,7 @@ fn inject_environment_variables<'a, T: IntoIterator<Item = (&'a str, &'a str)>>(
         .into_iter()
         .map(|(key, value)| format!("\"{key}\": \"{value}\""))
         .fold(String::new(), |a, b| {
-            // TODO: optimize this (should be much simpler)
+            // TODO: optimize this (can likely avoid some allocations)
             let mut n = String::with_capacity(a.len() + b.len() + 2);
             n.push_str(a.as_str());
             n.push_str(b.as_str());

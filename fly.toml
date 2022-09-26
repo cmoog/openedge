@@ -1,7 +1,7 @@
-app = "deno-edge"
+app = "openedge"
 
 [build]
-image = "deno-edge:latest"
+image = "openedge:latest"
 
 [[services]]
 internal_port = 8080

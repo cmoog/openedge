@@ -12,7 +12,7 @@ use std::sync::Arc;
 use crate::loader::OnlyMainModuleLoader;
 
 const RUNTIME_VERSION: &'static str = "0.0.1";
-const USER_AGENT: &'static str = "deno-edge-0.0.1";
+const USER_AGENT: &'static str = "openedge-0.0.1";
 
 fn get_error_class_name(e: &AnyError) -> &'static str {
     deno_runtime::errors::get_error_class_name(e).unwrap_or("Error")

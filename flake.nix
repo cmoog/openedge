@@ -1,36 +1,14 @@
 {
-  description = "deno-edge: A serverless edge runtime for JavaScript, built with Deno.";
+  description = "openedge: A serverless edge runtime for JavaScript, built with Deno.";
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    naersk.url = "github:nix-community/naersk";
   };
 
-  outputs = { self, nixpkgs, flake-utils, naersk }:
-    flake-utils.lib.eachDefaultSystem (system:
-      let
-        pkgs = nixpkgs.legacyPackages.${system};
-        naersk' = pkgs.callPackage naersk { };
-        librustUrl = "https://github.com/denoland/rusty_v8/releases/download/v0.51.0/librusty_v8_release_x86_64-unknown-linux-gnu.a";
-        prebuiltRustyV8 = builtins.fetchurl {
-          url = librustUrl;
-          sha256 = "0hpasrmk14wlqryaan1jsdn61x4s0hdanq5kas7x7kwxg00ap89k";
-        };
-        prebuiltRustyV8Sum = pkgs.writeText "rusty_v8_release_url" librustUrl;
-      in
+  outputs = { self, nixpkgs, flake-utils }:
+    (flake-utils.lib.eachDefaultSystem (system:
+      let pkgs = nixpkgs.legacyPackages.${system}; in
       {
-        packages = {
-          # TODO: fix. Broken due to libffi-sys build script needing write perms to source dir.
-          # default = naersk'.buildPackage {
-          #   src = ./.;
-          #   buildInputs = [ pkgs.coreutils ];
-          #   preBuild = ''
-          #     mkdir -p /build/dummy-src/target/release/gn_out/obj
-          #     cp ${prebuiltRustyV8} /build/dummy-src/target/release/gn_out/obj/librusty_v8.a
-          #     cp ${prebuiltRustyV8Sum} /build/dummy-src/target/release/gn_out/obj/librusty_v8.sum
-          #   '';
-          # };
-        };
         formatter = pkgs.nixpkgs-fmt;
         devShells.default = with pkgs; mkShell {
           packages = [
@@ -42,6 +20,57 @@
             rustfmt
           ];
           RUST_SRC_PATH = rustPlatform.rustLibSrc;
+        };
+      }
+    )) // (
+      # The derivations only support x86_64-linux for now...
+
+      # The rusty_v8 build scripts were causing issues with the nix incremental build systems,
+      # namely github:nix-community/naersk, so we will have to use rustPlatform.buildRustPackage for now. 
+
+      # TODO: extend this derivation to more systems
+      let
+        system = "x86_64-linux";
+        pkgs = nixpkgs.legacyPackages.${system};
+        librustUrl = "https://github.com/denoland/rusty_v8/releases/download/v0.51.0/librusty_v8_release_x86_64-unknown-linux-gnu.a";
+        prebuiltRustyV8 = builtins.fetchurl {
+          url = librustUrl;
+          sha256 = "0hpasrmk14wlqryaan1jsdn61x4s0hdanq5kas7x7kwxg00ap89k";
+        };
+        prebuiltRustyV8Sum = pkgs.writeText "rusty_v8_release_url" librustUrl;
+      in
+      {
+        packages.${system} = rec {
+          default = with pkgs; rustPlatform.buildRustPackage {
+            pname = "openedge";
+            version = "0.1.0";
+            src = ./.;
+            cargoHash = "sha256-Dx4eFEc0d4HiJd3wqNDMSxu6lsgadrHl0GKfP2d6e1I=";
+            preBuild = ''
+              mkdir -p ./target/x86_64-unknown-linux-gnu/release/gn_out/obj
+              cp ${prebuiltRustyV8} ./target/x86_64-unknown-linux-gnu/release/gn_out/obj/librusty_v8.a
+              cp ${prebuiltRustyV8Sum} ./target/x86_64-unknown-linux-gnu/release/gn_out/obj/librusty_v8.sum
+
+              mkdir -p ./target/release/gn_out/obj
+              cp ${prebuiltRustyV8} ./target/release/gn_out/obj/librusty_v8.a
+              cp ${prebuiltRustyV8Sum} ./target/release/gn_out/obj/librusty_v8.sum
+            '';
+            meta = with lib; {
+              description = "An open source serverless edge runtime for JavaScript.";
+              homepage = "https://github.com/cmoog/openedge";
+              license = licenses.mit;
+            };
+          };
+          container = with pkgs; dockerTools.buildLayeredImage {
+            name = "openedge";
+            tag = self.shortRev or "dirty";
+            config = {
+              Cmd = [ "${default}/bin/openedge" ];
+              ExposedPorts = {
+                "8080/tcp" = { };
+              };
+            };
+          };
         };
       }
     );

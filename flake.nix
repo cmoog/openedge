@@ -41,6 +41,7 @@
       in
       {
         packages.${system} = rec {
+          # info: https://github.com/NixOS/nixpkgs/blob/master/doc/languages-frameworks/rust.section.md
           default = with pkgs; rustPlatform.buildRustPackage {
             pname = "openedge";
             version = "0.1.0";

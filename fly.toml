@@ -1,5 +1,3 @@
-app = "openedge"
-
 [build]
 image = "openedge:latest"
 

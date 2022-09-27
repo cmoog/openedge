@@ -1,5 +1,5 @@
 {
-  description = "A serverless edge runtime for JavaScript and WebAseembly.";
+  description = "A serverless edge runtime for JavaScript and WebAssembly.";
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
@@ -58,7 +58,7 @@
               cp ${prebuiltRustyV8Sum} ./target/release/gn_out/obj/librusty_v8.sum
             '';
             meta = with lib; {
-              description = "An open source serverless edge runtime for JavaScript.";
+              description = "An open source serverless edge runtime for JavaScript and WebAssembly.";
               homepage = "https://github.com/cmoog/openedge";
               license = licenses.mit;
             };
@@ -66,6 +66,10 @@
           container = with pkgs; dockerTools.buildLayeredImage {
             name = "openedge";
             tag = self.shortRev or "dirty";
+            extraCommands = ''
+              cp ${self}/hello.js ./
+              cp ${self}/goodbye.js ./
+            '';
             config = {
               Cmd = [ "${default}/bin/openedge" ];
               ExposedPorts = {

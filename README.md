@@ -1,5 +1,7 @@
 # OpenEdge
 
+> **Warning** Not yet usable. Under development.
+
 An open source serverless edge runtime for JavaScript and WebAssembly.
 
 Built with deno_core, Rust, and V8.

@@ -11,92 +11,26 @@ use std::net::{IpAddr, Ipv4Addr};
 use std::rc::Rc;
 use std::{convert::Infallible, net::SocketAddr};
 use tokio::net::TcpListener;
-use worker::wait_until_dials;
 
 pub mod loader;
 pub mod permissions;
+pub mod router;
 pub mod store;
 pub mod worker;
 
-// TODO: wrap with a normal Result so the control flow can be cleaner with ? try syntax,
-// then the handler just writes 500 when an error is returned.
 async fn handle(
-    mut state: Workers,
+    state: Workers,
     addr: SocketAddr,
     req: Request<Body>,
 ) -> Result<Response<Body>, Infallible> {
-    match req.headers().get("host") {
-        Some(host) => {
-            let host = match host.to_str() {
-                Ok(h) => match h.split('.').next() {
-                    Some(top_host_part) => top_host_part,
-                    None => {
-                        return Ok(Response::builder()
-                            .status(500)
-                            .body("invalid host header".into())
-                            .unwrap())
-                    }
-                },
-                Err(_e) => {
-                    return Ok(Response::builder()
-                        .status(500)
-                        .body("invalid host header".into())
-                        .unwrap())
-                }
-            };
-            let worker = {
-                match state.get_existing_worker_port(host) {
-                    Some(port) => Worker { port },
-                    None => {
-                        let main_module = match state.store.hostname_to_module(host.to_string()) {
-                            Ok(m) => m,
-                            Err(_e) => {
-                                return Ok(Response::builder()
-                                    .status(500)
-                                    .body("invalid host header".into())
-                                    .unwrap())
-                            }
-                        };
-                        match startup_new_worker(&mut state, main_module).await {
-                            Ok(w) => {
-                                let before_coldstart = tokio::time::Instant::now();
-                                state.register_new_running_worker(host, w.clone());
-                                wait_until_dials(SocketAddr::new(
-                                    IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
-                                    w.port,
-                                ))
-                                .await
-                                .expect("worker failed to get ready");
-                                println!(
-                                    "cold start took = {}ms",
-                                    before_coldstart.elapsed().as_millis()
-                                );
-                                w
-                            }
-                            Err(e) => {
-                                dbg!(e);
-                                return Ok(Response::builder()
-                                    .status(500)
-                                    .body("invalid host header".into())
-                                    .unwrap());
-                            }
-                        }
-                    }
-                }
-            };
-
-            match hyper_reverse_proxy::call(
-                addr.ip(),
-                format!("http://127.0.0.1:{}", worker.port).as_str(),
-                req,
-            )
-            .await
-            {
+    match router::resolve_to_proxy(state, &req).await {
+        Ok(proxy_url) => {
+            match hyper_reverse_proxy::call(addr.ip(), proxy_url.as_str(), req).await {
                 Ok(resp) => Ok(resp),
                 Err(_e) => Ok(Response::builder().status(500).body(Body::empty()).unwrap()),
             }
         }
-        None => Ok(Response::builder()
+        Err(_e) => Ok(Response::builder()
             .status(500)
             .body("\"host\" header not found".into())
             .unwrap()),
@@ -125,13 +59,13 @@ async fn startup_new_worker(
 }
 
 #[derive(Clone, Debug)]
-struct Worker {
+pub struct Worker {
     port: u16,
 }
 
 // TODO: fix this entire abstraction
 #[derive(Clone, Debug)]
-struct Workers {
+pub struct Workers {
     running: Rc<RefCell<HashMap<String, Worker>>>,
     available_ports: Rc<RefCell<BTreeSet<u16>>>,
     store: store::Store,

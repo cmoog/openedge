@@ -18,6 +18,7 @@
             rust-analyzer
             rustc
             rustfmt
+            typos
           ];
           RUST_SRC_PATH = rustPlatform.rustLibSrc;
         };

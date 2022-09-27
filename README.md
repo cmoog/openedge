@@ -26,7 +26,7 @@ system APIs.
 | Resource              | Scope                                 | Example                                                                          |
 | --------------------- | ------------------------------------- | -------------------------------------------------------------------------------- |
 | network access        | `localhost:$PORT` and public internet | `fetch("https://example.com")`, `Deno.serve(..., { port: Deno.env.get("PORT")})` |
-| environemnt variables | `"PORT"`, `"REGION"`                  | `Deno.env.get("PORT")`                                                           |
+| environment variables | `"PORT"`, `"REGION"`                  | `Deno.env.get("PORT")`                                                           |
 | filesystem read       | none                                  | -                                                                                |
 | filesystem write      | none                                  | -                                                                                |
 | child process         | none                                  | -                                                                                |

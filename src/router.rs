@@ -5,7 +5,7 @@ use hyper::{Body, Request};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 pub async fn resolve_to_proxy(mut state: Workers, req: &Request<Body>) -> Result<String, Error> {
-    let host = req
+    let host_slug = req
         .headers()
         .get("host")
         .ok_or(anyhow!("\"host\" header not found"))?
@@ -15,16 +15,16 @@ pub async fn resolve_to_proxy(mut state: Workers, req: &Request<Body>) -> Result
         .ok_or(anyhow!("invalid host header"))?;
 
     let worker = {
-        match state.get_existing_worker_port(host) {
+        match state.get_existing_worker_port(host_slug) {
             Some(port) => Worker { port },
             None => {
-                let main_module = match state.store.hostname_to_module(host.to_string()) {
+                let main_module = match state.store.hostslug_to_module(host_slug.to_string()) {
                     Ok(m) => m,
                     Err(_e) => bail!("invalid host header"),
                 };
                 let new_worker = startup_new_worker(&mut state, main_module).await?;
                 let before_coldstart = tokio::time::Instant::now();
-                state.register_new_running_worker(host, new_worker.clone());
+                state.register_new_running_worker(host_slug, new_worker.clone());
                 wait_until_dials(SocketAddr::new(
                     IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
                     new_worker.port,

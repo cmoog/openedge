@@ -9,11 +9,11 @@ pub struct Store {
 }
 
 impl Store {
-    pub fn register_module(&mut self, hostname: String, module: ModuleSpecifier) {
-        self.store.insert(hostname, module);
+    pub fn register_module(&mut self, host_slug: String, module: ModuleSpecifier) {
+        self.store.insert(host_slug, module);
     }
 
-    pub fn hostname_to_module(&self, hostname: String) -> Result<ModuleSpecifier, AnyError> {
+    pub fn hostslug_to_module(&self, hostname: String) -> Result<ModuleSpecifier, AnyError> {
         self.store
             .get(&hostname)
             .ok_or_else(|| anyhow::anyhow!("hostname not found"))

@@ -6,33 +6,44 @@ An open source serverless edge runtime for JavaScript and WebAssembly.
 
 Built with deno_core, Rust, and V8.
 
+## Test
+
+```sh
+docker run --rm ghcr.io/cmoog/openedge:latest -p 8080:8080
+
+# in another terminal
+curl --header "host: hello.com" http://localhost:8080
+curl --header "host: goodbye.com" http://localhost:8080
+```
+
 ## Example
+
+> **Warning** TODO: switch to default export of fetch handler a la CF Workers
 
 ```javascript
 Deno.serve(() => new Response(`hello from ${Deno.env.get("REGION")}`), {
+  hostname: "0.0.0.0",
   port: Deno.env.get("PORT"),
 });
 ```
 
 ## Sandbox
 
-The OpenEdge sandbox supports the [Deno](https://deno.land/api@v1.25.4) runtime
-APIs, including
-[WebPlatform APIs](https://deno.land/manual@v1.25.4/runtime/web_platform_apis).
+The OpenEdge sandbox supports the [WebPlatform APIs](https://deno.land/manual@v1.25.4/runtime/web_platform_apis).
 
 ### Permissions
 
 Each worker runs in its own V8 isolate with restricted access to underlying
 system APIs.
 
-| Resource              | Scope                                 | Example                                                                          |
-| --------------------- | ------------------------------------- | -------------------------------------------------------------------------------- |
-| network access        | `localhost:$PORT` and public internet | `fetch("https://example.com")`, `Deno.serve(..., { port: Deno.env.get("PORT")})` |
-| environment variables | `"PORT"`, `"REGION"`                  | `Deno.env.get("PORT")`                                                           |
-| filesystem read       | none                                  | -                                                                                |
-| filesystem write      | none                                  | -                                                                                |
-| child process         | none                                  | -                                                                                |
-| ffi                   | none                                  | -                                                                                |
+| Resource              | Scope                              | Example                        |
+| --------------------- | ---------------------------------- | ------------------------------ |
+| network access        | public internet, `localhost:$PORT` | `fetch("https://example.com")` |
+| environment variables | "REGION", "PORT"                   | `Deno.env.get("REGION")`       |
+| filesystem read       | none                               | -                              |
+| filesystem write      | none                               | -                              |
+| child process         | none                               | -                              |
+| ffi                   | none                               | -                              |
 
 ## Deploy on [fly.io](https://fly.io)
 

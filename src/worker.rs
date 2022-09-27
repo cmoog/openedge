@@ -1,11 +1,14 @@
 use deno_core::error::AnyError;
 use deno_runtime::deno_broadcast_channel::InMemoryBroadcastChannel;
 use deno_runtime::deno_core;
+use deno_runtime::deno_core::anyhow::anyhow;
 use deno_runtime::deno_core::ModuleSpecifier;
 use deno_runtime::deno_web::BlobStore;
 use deno_runtime::worker::MainWorker;
 use deno_runtime::worker::WorkerOptions;
 use deno_runtime::BootstrapOptions;
+use std::io::ErrorKind;
+use std::net::SocketAddr;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -115,4 +118,17 @@ fn inject_environment_variables<'a, T: IntoIterator<Item = (&'a str, &'a str)>>(
     );
     worker.execute_script("bootstrap_environment_variables.js", script.as_str())?;
     Ok(())
+}
+
+// TODO: this is very important (with respect to cold start times) and is currently extremely
+// non-optimal.
+pub async fn wait_until_dials(addr: SocketAddr) -> Result<(), AnyError> {
+    // TODO: add loop timeout
+    loop {
+        match tokio::net::TcpStream::connect(addr).await {
+            Ok(_) => return Ok(()),
+            Err(e) if e.kind() == ErrorKind::ConnectionRefused => continue,
+            Err(e) => return Err(anyhow!("worker failed readiness probe with bad error: {e}")),
+        }
+    }
 }

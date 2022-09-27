@@ -11,12 +11,15 @@ use std::net::{IpAddr, Ipv4Addr};
 use std::rc::Rc;
 use std::{convert::Infallible, net::SocketAddr};
 use tokio::net::TcpListener;
+use worker::wait_until_dials;
 
 pub mod loader;
 pub mod permissions;
 pub mod store;
 pub mod worker;
 
+// TODO: wrap with a normal Result so the control flow can be cleaner with ? try syntax,
+// then the handler just writes 500 when an error is returned.
 async fn handle(
     mut state: Workers,
     addr: SocketAddr,
@@ -48,7 +51,18 @@ async fn handle(
                         };
                         match startup_new_worker(&mut state, main_module).await {
                             Ok(w) => {
+                                let before_coldstart = tokio::time::Instant::now();
                                 state.register_new_running_worker(host, w.clone());
+                                wait_until_dials(SocketAddr::new(
+                                    IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
+                                    w.port,
+                                ))
+                                .await
+                                .expect("worker failed to get ready");
+                                println!(
+                                    "cold start took = {}ms",
+                                    before_coldstart.elapsed().as_millis()
+                                );
                                 w
                             }
                             Err(e) => {

@@ -1,5 +1,5 @@
 {
-  description = "openedge: A serverless edge runtime for JavaScript, built with Deno.";
+  description = "A serverless edge runtime for JavaScript and WebAseembly.";
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
@@ -69,6 +69,11 @@
               Cmd = [ "${default}/bin/openedge" ];
               ExposedPorts = {
                 "8080/tcp" = { };
+              };
+              Labels = {
+                "org.opencontainers.image.description" = "A serverless edge runtime for JavaScript and WebAssembly.";
+                "org.opencontainers.image.source" = "https://github.com/cmoog/openedge";
+                "org.opencontainers.image.licenses" = "MIT";
               };
             };
           };

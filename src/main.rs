@@ -28,7 +28,15 @@ async fn handle(
     match req.headers().get("host") {
         Some(host) => {
             let host = match host.to_str() {
-                Ok(h) => h,
+                Ok(h) => match h.split('.').next() {
+                    Some(top_host_part) => top_host_part,
+                    None => {
+                        return Ok(Response::builder()
+                            .status(500)
+                            .body("invalid host header".into())
+                            .unwrap())
+                    }
+                },
                 Err(_e) => {
                     return Ok(Response::builder()
                         .status(500)

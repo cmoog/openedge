@@ -24,3 +24,9 @@ jobs:
           tag=$(git rev-parse --short HEAD)
           docker tag openedge:$tag ghcr.io/cmoog/openedge:$tag
           docker push ghcr.io/cmoog/openedge:$tag
+      - name: tag latest
+        if: github.ref == 'refs/heads/master'
+        run: | 
+          tag=$(git rev-parse --short HEAD)
+          docker tag openedge:$tag ghcr.io/cmoog/openedge:latest
+          docker push ghcr.io/cmoog/openedge:latest

@@ -8,22 +8,44 @@ use deno_runtime::deno_core::ModuleSourceFuture;
 use deno_runtime::deno_core::ModuleSpecifier;
 use std::pin::Pin;
 
-pub struct OnlyMainModuleLoader(FsModuleLoader);
+pub struct UserModuleWrapper {
+    pub code: String,
+    pub spec: ModuleSpecifier,
+}
 
-impl OnlyMainModuleLoader {
+const WRAPPER_MODULE_SPEC: &str = "file:///wrapper.js";
+
+pub fn new_wrapper(user_module: &ModuleSpecifier) -> UserModuleWrapper {
+    let code = format!(
+        "import worker from \"{}\"; 
+Deno.serve(worker.fetch, {{
+    hostname: \"0.0.0.0\",
+    port: Deno.env.get(\"PORT\"),
+}})
+",
+        user_module.as_str()
+    );
+    let spec = deno_core::resolve_url(WRAPPER_MODULE_SPEC).unwrap();
+
+    UserModuleWrapper { code, spec }
+}
+
+pub struct OnlyLoadWrapperImports(FsModuleLoader);
+
+impl OnlyLoadWrapperImports {
     pub fn new() -> Self {
-        OnlyMainModuleLoader(FsModuleLoader)
+        OnlyLoadWrapperImports(FsModuleLoader)
     }
 }
 
-impl ModuleLoader for OnlyMainModuleLoader {
+impl ModuleLoader for OnlyLoadWrapperImports {
     fn resolve(
         &self,
         specifier: &str,
         referrer: &str,
         is_main: bool,
     ) -> Result<ModuleSpecifier, anyhow::Error> {
-        if is_main {
+        if (is_main && specifier == WRAPPER_MODULE_SPEC) || referrer == WRAPPER_MODULE_SPEC {
             self.0.resolve(specifier, referrer, is_main)
         } else {
             Err(generic_error("Module loading is not supported"))

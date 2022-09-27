@@ -1,8 +1,7 @@
-Deno.serve(
-  () =>
-    new Response(`goodbye from openedge running in ${Deno.env.get("REGION")}`),
-  {
-    hostname: "0.0.0.0",
-    port: Deno.env.get("PORT"),
+export default {
+  fetch(_req, _env) {
+    return new Response(
+      `goodbye from openedge running in ${Deno.env.get("REGION")}`,
+    );
   },
-);
+};

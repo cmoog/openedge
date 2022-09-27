@@ -12,7 +12,7 @@ use std::net::SocketAddr;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use crate::loader::OnlyMainModuleLoader;
+use crate::loader::OnlyLoadWrapperImports;
 
 const RUNTIME_VERSION: &'static str = "0.0.1";
 const USER_AGENT: &'static str = "openedge-0.0.1";
@@ -22,7 +22,7 @@ fn get_error_class_name(e: &AnyError) -> &'static str {
 }
 
 pub fn instance(main_module: ModuleSpecifier, port: u16) -> Result<MainWorker, AnyError> {
-    let module_loader = Rc::new(OnlyMainModuleLoader::new());
+    let module_loader = Rc::new(OnlyLoadWrapperImports::new());
     let create_web_worker_cb = Arc::new(|_| unimplemented!());
     let web_worker_event_cb = Arc::new(|_| unimplemented!());
 

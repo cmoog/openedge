@@ -44,12 +44,18 @@ async fn startup_new_worker(
     let port = state
         .take_available_port()
         .ok_or_else(|| anyhow::anyhow!("ran out of ports!"))?;
-
     tokio::task::spawn_local(async move {
         let mut worker =
             worker::instance(main_module.clone(), port).expect("create new worker instance");
+
+        let module_wrapper = loader::new_wrapper(&main_module);
+        let mod_id = worker
+            .js_runtime
+            .load_main_module(&module_wrapper.spec, Some(module_wrapper.code))
+            .await
+            .expect("load module wrapper");
         worker
-            .execute_main_module(&main_module)
+            .evaluate_module(mod_id)
             .await
             .expect("execute main module");
         worker.run_event_loop(false).await.expect("run event loop");
@@ -99,6 +105,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .enable_all()
         .build()
         .expect("build runtime");
+
     let local = tokio::task::LocalSet::new();
     local.block_on(
         &rt,

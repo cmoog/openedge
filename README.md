@@ -9,7 +9,7 @@ Built with deno_core, Rust, and V8.
 ## Test
 
 ```sh
-docker run --rm ghcr.io/cmoog/openedge:latest -p 8080:8080
+docker run --rm -p 8080:8080 ghcr.io/cmoog/openedge:latest
 
 # in another terminal
 curl --header "host: hello.com" http://localhost:8080
@@ -18,18 +18,20 @@ curl --header "host: goodbye.com" http://localhost:8080
 
 ## Example
 
-> **Warning** TODO: switch to default export of fetch handler a la CF Workers
-
 ```javascript
-Deno.serve(() => new Response(`hello from ${Deno.env.get("REGION")}`), {
-  hostname: "0.0.0.0",
-  port: Deno.env.get("PORT"),
-});
+export default {
+  fetch(_req) {
+    return new Response(
+      `hello from openedge running in ${Deno.env.get("REGION")}\n`,
+    );
+  },
+};
 ```
 
 ## Sandbox
 
-The OpenEdge sandbox supports the [WebPlatform APIs](https://deno.land/manual@v1.25.4/runtime/web_platform_apis).
+The OpenEdge sandbox supports the
+[WebPlatform APIs](https://deno.land/manual@v1.25.4/runtime/web_platform_apis).
 
 ### Permissions
 

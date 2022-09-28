@@ -1,5 +1,5 @@
 [build]
-image = "openedge:latest"
+image = "ghcr.io/cmoog/openedge:latest"
 
 [[services]]
 internal_port = 8080

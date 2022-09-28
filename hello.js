@@ -1,7 +1,7 @@
 export default {
-  fetch(_req) {
+  fetch(_req, env) {
     return new Response(
-      `hello from openedge running in ${Deno.env.get("REGION")}\n`,
+      `hello from openedge running in ${env.REGION}\n`,
     );
   },
 };

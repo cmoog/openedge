@@ -20,10 +20,8 @@ curl --header "host: goodbye.com" http://localhost:8080
 
 ```javascript
 export default {
-  fetch(_req) {
-    return new Response(
-      `hello from openedge running in ${Deno.env.get("REGION")}\n`,
-    );
+  fetch(req, env) {
+    return new Response(`hello from openedge running in ${env.REGION}\n`);
   },
 };
 ```
@@ -38,14 +36,14 @@ The OpenEdge sandbox supports the
 Each worker runs in its own V8 isolate with restricted access to underlying
 system APIs.
 
-| Resource              | Scope                              | Example                        |
-| --------------------- | ---------------------------------- | ------------------------------ |
-| network access        | public internet, `localhost:$PORT` | `fetch("https://example.com")` |
-| environment variables | "REGION", "PORT"                   | `Deno.env.get("REGION")`       |
-| filesystem read       | none                               | -                              |
-| filesystem write      | none                               | -                              |
-| child process         | none                               | -                              |
-| ffi                   | none                               | -                              |
+| Resource              | Scope           | Usage                                          |
+| --------------------- | --------------- | ---------------------------------------------- |
+| network access        | public internet | `fetch("https://example.com")`                 |
+| environment variables | "REGION"        | passed through `env` argument to fetch handler |
+| filesystem read       | none            | -                                              |
+| filesystem write      | none            | -                                              |
+| child process         | none            | -                                              |
+| ffi                   | none            | -                                              |
 
 ## Deploy on [fly.io](https://fly.io)
 

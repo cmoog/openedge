@@ -47,8 +47,12 @@ async fn startup_new_worker(
     tokio::task::spawn_local(async move {
         let mut worker =
             worker::instance(main_module.clone(), port).expect("create new worker instance");
+        let env_vars = vec![(
+            "REGION",
+            std::env::var("FLY_REGION").unwrap_or("UNKNOWN".to_string()),
+        )];
 
-        let module_wrapper = loader::new_wrapper(&main_module);
+        let module_wrapper = loader::new_wrapper(&main_module, env_vars, port);
         let mod_id = worker
             .js_runtime
             .load_main_module(&module_wrapper.spec, Some(module_wrapper.code))

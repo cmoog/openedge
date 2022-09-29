@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-deno_runtime = "0.78.0"
+deno_flash = "0.7.0"
+deno_runtime = "0.79.0"
 hyper = { version = "0.14", features = ["full"] }
 hyper-reverse-proxy = "0.5.1"
 tokio = { version = "1.19.2", features = ["full"] }

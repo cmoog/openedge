@@ -47,7 +47,7 @@
             pname = "openedge";
             version = "0.1.0";
             src = ./.;
-            cargoHash = "sha256-Dx4eFEc0d4HiJd3wqNDMSxu6lsgadrHl0GKfP2d6e1I=";
+            cargoHash = "sha256-zrwDD5+p2sNTYFrWZO1/wzb43omVPc1CwyA7k5bJm58=";
             preBuild = ''
               mkdir -p ./target/x86_64-unknown-linux-gnu/release/gn_out/obj
               cp ${prebuiltRustyV8} ./target/x86_64-unknown-linux-gnu/release/gn_out/obj/librusty_v8.a

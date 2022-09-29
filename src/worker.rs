@@ -1,18 +1,32 @@
-use deno_core::error::AnyError;
-use deno_runtime::deno_broadcast_channel::InMemoryBroadcastChannel;
-use deno_runtime::deno_core;
-use deno_runtime::deno_core::anyhow::anyhow;
-use deno_runtime::deno_core::ModuleSpecifier;
-use deno_runtime::deno_web::BlobStore;
-use deno_runtime::worker::MainWorker;
-use deno_runtime::worker::WorkerOptions;
-use deno_runtime::BootstrapOptions;
+use deno_runtime::{
+    deno_broadcast_channel::InMemoryBroadcastChannel, deno_core::anyhow::anyhow,
+    deno_core::error::AnyError, deno_core::ModuleSpecifier, deno_web::BlobStore,
+    worker::WorkerOptions, BootstrapOptions,
+};
 use std::io::ErrorKind;
 use std::net::SocketAddr;
 use std::rc::Rc;
 use std::sync::Arc;
 
+use crate::loader;
 use crate::loader::OnlyLoadWrapperImports;
+use crate::runtime::runtime::{Permissions, Runtime};
+
+pub async fn run_usercode(main_module: ModuleSpecifier, port: u16) -> Result<(), AnyError> {
+    let mut worker = instance(main_module.clone(), port)?;
+
+    let region = std::env::var("REGION").unwrap_or_else(|_| "UNKNOWN".to_string());
+    let env_vars = vec![("REGION", region.as_str())];
+
+    let module_wrapper = loader::new_wrapper(&main_module, &env_vars, port);
+    let mod_id = worker
+        .js_runtime
+        .load_main_module(&module_wrapper.spec, Some(module_wrapper.code))
+        .await?;
+    worker.evaluate_module(mod_id).await?;
+    worker.run_event_loop(false).await?;
+    Ok(())
+}
 
 const RUNTIME_VERSION: &'static str = "0.0.1";
 const USER_AGENT: &'static str = "openedge-0.0.1";
@@ -21,12 +35,13 @@ fn get_error_class_name(e: &AnyError) -> &'static str {
     deno_runtime::errors::get_error_class_name(e).unwrap_or("Error")
 }
 
-pub fn instance(main_module: ModuleSpecifier, port: u16) -> Result<MainWorker, AnyError> {
+pub fn instance(main_module: ModuleSpecifier, port: u16) -> Result<Runtime, AnyError> {
     let module_loader = Rc::new(OnlyLoadWrapperImports::new());
     let create_web_worker_cb = Arc::new(|_| unimplemented!());
     let web_worker_event_cb = Arc::new(|_| unimplemented!());
 
     let options = WorkerOptions {
+        cache_storage_dir: None,
         bootstrap: BootstrapOptions {
             args: vec![],
             cpu_count: 1,
@@ -62,10 +77,14 @@ pub fn instance(main_module: ModuleSpecifier, port: u16) -> Result<MainWorker, A
         compiled_wasm_module_store: None,
         stdio: Default::default(),
     };
-
-    let permissions = crate::permissions::permissions(port);
-    let worker = MainWorker::bootstrap_from_options(main_module, permissions, options);
-    Ok(worker)
+    let r = Runtime::bootstrap_from_options(
+        main_module,
+        Permissions {
+            allow_local_port: port,
+        },
+        options,
+    );
+    Ok(r)
 }
 
 // TODO: this is very important (with respect to cold start times) and is currently extremely

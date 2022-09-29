@@ -19,7 +19,7 @@ pub async fn resolve_to_proxy(mut state: Workers, req: &Request<Body>) -> Result
             Some(port) => Worker { port },
             None => {
                 let main_module = state.store.hostslug_to_module(host_slug.to_string())?;
-                let new_worker = startup_new_worker(&mut state, main_module).await?;
+                let new_worker = startup_new_worker(&mut state, host_slug.to_string(), main_module).await?;
                 let before_coldstart = tokio::time::Instant::now();
                 wait_until_dials(SocketAddr::new(
                     IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),

@@ -49,8 +49,7 @@ system APIs.
 
 ```sh
 flyctl apps create [app_name]
-docker build -t openedge:latest .
-flyctl deploy --app [app_name] --local-only
+flyctl deploy --app [app_name]
 flyctl regions add sea ord maa dfw fra syd
 ```
 

@@ -11,10 +11,11 @@ use std::net::{IpAddr, Ipv4Addr};
 use std::rc::Rc;
 use std::{convert::Infallible, net::SocketAddr};
 use tokio::net::TcpListener;
+use worker::run_usercode;
 
 pub mod loader;
-pub mod permissions;
 pub mod router;
+pub mod runtime;
 pub mod store;
 pub mod worker;
 
@@ -39,30 +40,22 @@ async fn handle(
 
 async fn startup_new_worker(
     state: &mut Workers,
+    host_slug: String,
     main_module: ModuleSpecifier,
 ) -> Result<Worker, AnyError> {
     let port = state
         .take_available_port()
         .ok_or_else(|| anyhow::anyhow!("ran out of ports!"))?;
-    tokio::task::spawn_local(async move {
-        let mut worker =
-            worker::instance(main_module.clone(), port).expect("create new worker instance");
-        let env_vars = vec![(
-            "REGION",
-            std::env::var("FLY_REGION").unwrap_or("UNKNOWN".to_string()),
-        )];
 
-        let module_wrapper = loader::new_wrapper(&main_module, env_vars, port);
-        let mod_id = worker
-            .js_runtime
-            .load_main_module(&module_wrapper.spec, Some(module_wrapper.code))
-            .await
-            .expect("load module wrapper");
-        worker
-            .evaluate_module(mod_id)
-            .await
-            .expect("execute main module");
-        worker.run_event_loop(false).await.expect("run event loop");
+    let state = state.clone();
+    tokio::task::spawn_local(async move { 
+        match run_usercode(main_module, port).await {
+            Ok(()) => {},
+            Err(e) => {
+                println!("user code failed: {e}");
+                state.running.borrow_mut().remove(&host_slug);
+            },
+        }
     });
 
     Ok(Worker { port })

@@ -15,7 +15,7 @@ pub struct UserModuleWrapper {
 
 const WRAPPER_MODULE_SPEC: &str = "file:///wrapper.js";
 
-pub fn new_wrapper<'a, E: IntoIterator<Item = (&'a str, String)>>(
+pub fn new_wrapper<'a, E: IntoIterator<Item = &'a (&'a str, &'a str)>>(
     user_module: &ModuleSpecifier,
     env_vars: E,
     port: u16,
@@ -33,24 +33,17 @@ Deno.serve((req) => worker.fetch(req, {{
         to_js_keyvalues(env_vars),
         port
     );
-    println!("{}", code);
     let spec = deno_core::resolve_url(WRAPPER_MODULE_SPEC).unwrap();
 
     UserModuleWrapper { code, spec }
 }
 
-fn to_js_keyvalues<'a, T: IntoIterator<Item = (&'a str, String)>>(key_pairs: T) -> String {
+fn to_js_keyvalues<'a, T: IntoIterator<Item = &'a (&'a str, &'a str)>>(key_pairs: T) -> String {
     key_pairs
         .into_iter()
         .map(|(key, value)| format!("\"{key}\": \"{value}\""))
-        .fold(String::new(), |a, b| {
-            // TODO: optimize this (can likely avoid some allocations)
-            let mut n = String::with_capacity(a.len() + b.len() + 2);
-            n.push_str(a.as_str());
-            n.push_str(b.as_str());
-            n.push_str(",\n");
-            n
-        })
+        .collect::<Vec<String>>()
+        .join(",\n")
 }
 
 pub struct OnlyLoadWrapperImports(FsModuleLoader);

@@ -3,6 +3,7 @@ use deno_runtime::deno_broadcast_channel::InMemoryBroadcastChannel;
 use deno_runtime::deno_core;
 use deno_runtime::deno_core::anyhow::anyhow;
 use deno_runtime::deno_core::ModuleSpecifier;
+use deno_runtime::deno_fetch;
 use deno_runtime::deno_web::BlobStore;
 use deno_runtime::worker::MainWorker;
 use deno_runtime::worker::WorkerOptions;
@@ -13,6 +14,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::loader::OnlyLoadWrapperImports;
+use crate::permissions::FetchBlockLocal;
 
 const RUNTIME_VERSION: &'static str = "0.0.1";
 const USER_AGENT: &'static str = "openedge-0.0.1";
@@ -41,7 +43,10 @@ pub fn instance(main_module: ModuleSpecifier, port: u16) -> Result<MainWorker, A
             user_agent: USER_AGENT.to_string(),
             inspect: false,
         },
-        extensions: vec![],
+        extensions: vec![
+            deno_fetch::init::<FetchBlockLocal>(Default::default()),
+            crate::permissions::perm_ext(),
+        ],
         unsafely_ignore_certificate_errors: None,
         root_cert_store: None,
         seed: None,

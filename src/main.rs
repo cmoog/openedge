@@ -20,7 +20,7 @@ pub mod store;
 pub mod worker;
 
 async fn handle(
-    state: Workers,
+    state: IsolateManager,
     addr: SocketAddr,
     req: Request<Body>,
 ) -> Result<Response<Body>, Infallible> {
@@ -39,43 +39,43 @@ async fn handle(
 }
 
 async fn startup_new_worker(
-    state: &mut Workers,
+    state: &mut IsolateManager,
     host_slug: String,
     main_module: ModuleSpecifier,
-) -> Result<Worker, AnyError> {
+) -> Result<RunningIsolateMetadata, AnyError> {
     let port = state
         .take_available_port()
         .ok_or_else(|| anyhow::anyhow!("ran out of ports!"))?;
 
     let state = state.clone();
-    tokio::task::spawn_local(async move { 
+    tokio::task::spawn_local(async move {
         match run_usercode(main_module, port).await {
-            Ok(()) => {},
+            Ok(()) => {}
             Err(e) => {
                 println!("user code failed: {e}");
                 state.running.borrow_mut().remove(&host_slug);
-            },
+            }
         }
     });
 
-    Ok(Worker { port })
+    Ok(RunningIsolateMetadata { port })
 }
 
 #[derive(Clone, Debug)]
-pub struct Worker {
+pub struct RunningIsolateMetadata {
     port: u16,
 }
 
 // TODO: fix this entire abstraction
 #[derive(Clone, Debug)]
-pub struct Workers {
-    running: Rc<RefCell<HashMap<String, Worker>>>,
+pub struct IsolateManager {
+    running: Rc<RefCell<HashMap<String, RunningIsolateMetadata>>>,
     available_ports: Rc<RefCell<BTreeSet<u16>>>,
     store: store::Store,
 }
 
-impl Workers {
-    fn register_new_running_worker(&self, hostname: &str, worker: Worker) {
+impl IsolateManager {
+    fn register_new_isolate(&self, hostname: &str, worker: RunningIsolateMetadata) {
         self.running
             .borrow_mut()
             .insert(hostname.to_string(), worker);
@@ -89,7 +89,7 @@ impl Workers {
         Some(next_port)
     }
 
-    fn get_existing_worker_port(&self, hostname: &str) -> Option<u16> {
+    fn get_running_isolate_port(&self, hostname: &str) -> Option<u16> {
         match self.running.borrow().get(hostname) {
             Some(w) => Some(w.port),
             None => None,
@@ -120,7 +120,7 @@ async fn startup_ingress() -> Result<(), AnyError> {
     );
     store.register_module("nice".to_string(), deno_core::resolve_path("./goodbye.js")?);
 
-    let state = Workers {
+    let state = IsolateManager {
         running: Rc::new(RefCell::new(HashMap::new())),
         available_ports: Rc::new(RefCell::new(BTreeSet::from([8888, 9999, 8081]))),
         store,

@@ -1,10 +1,13 @@
-use crate::{startup_new_worker, worker::wait_until_dials, Worker, Workers};
+use crate::{startup_new_worker, worker::wait_until_dials, IsolateManager, RunningIsolateMetadata};
 use deno_runtime::deno_core::anyhow::anyhow;
 use deno_runtime::deno_core::anyhow::Error;
 use hyper::{Body, Request};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
-pub async fn resolve_to_proxy(mut state: Workers, req: &Request<Body>) -> Result<String, Error> {
+pub async fn resolve_to_proxy(
+    mut state: IsolateManager,
+    req: &Request<Body>,
+) -> Result<String, Error> {
     let host_slug = req
         .headers()
         .get("host")
@@ -15,11 +18,12 @@ pub async fn resolve_to_proxy(mut state: Workers, req: &Request<Body>) -> Result
         .ok_or(anyhow!("invalid host header"))?;
 
     let worker = {
-        match state.get_existing_worker_port(host_slug) {
-            Some(port) => Worker { port },
+        match state.get_running_isolate_port(host_slug) {
+            Some(port) => RunningIsolateMetadata { port },
             None => {
                 let main_module = state.store.hostslug_to_module(host_slug.to_string())?;
-                let new_worker = startup_new_worker(&mut state, host_slug.to_string(), main_module).await?;
+                let new_worker =
+                    startup_new_worker(&mut state, host_slug.to_string(), main_module).await?;
                 let before_coldstart = tokio::time::Instant::now();
                 wait_until_dials(SocketAddr::new(
                     IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
@@ -30,7 +34,7 @@ pub async fn resolve_to_proxy(mut state: Workers, req: &Request<Body>) -> Result
                     "cold start took = {}ms",
                     before_coldstart.elapsed().as_millis()
                 );
-                state.register_new_running_worker(host_slug, new_worker.clone());
+                state.register_new_isolate(host_slug, new_worker.clone());
                 new_worker
             }
         }

@@ -22,9 +22,14 @@ pub fn new_wrapper<'a, E: IntoIterator<Item = &'a (&'a str, &'a str)>>(
 ) -> UserModuleWrapper {
     let code = format!(
         "import worker from \"{}\"; 
-Deno.serve((req) => worker.fetch(req, {{
-    {}
-}}), {{
+Deno.serve(async (req) => {{
+    try {{
+        const resp = await worker.fetch(req, {{{}}})
+        return resp
+    }} catch {{
+        return new Response(\"internal server error\\n\", {{ status: 500 }})
+    }}
+}}, {{
     hostname: \"0.0.0.0\",
     port: \"{}\",
 }})

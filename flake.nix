@@ -69,6 +69,7 @@
             extraCommands = ''
               cp ${self}/hello.js ./
               cp ${self}/goodbye.js ./
+              cp ${self}/keys.js ./
             '';
             config = {
               Cmd = [ "${default}/bin/openedge" ];

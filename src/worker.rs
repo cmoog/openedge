@@ -88,7 +88,7 @@ pub fn instance(main_module: ModuleSpecifier, port: u16) -> Result<Runtime, AnyE
 }
 
 // TODO: this is very important (with respect to cold start times) and is currently extremely
-// non-optimal.
+// suboptimal.
 pub async fn wait_until_dials(addr: SocketAddr) -> Result<(), AnyError> {
     // TODO: add loop timeout
     loop {

@@ -33,7 +33,7 @@ async fn handle(
         }
         Err(_e) => Ok(Response::builder()
             .status(500)
-            .body("\"host\" header not found".into())
+            .body("failed routing to isolate".into())
             .unwrap()),
     }
 }
@@ -118,7 +118,7 @@ async fn startup_ingress() -> Result<(), AnyError> {
         "goodbye".to_string(),
         deno_core::resolve_path("./goodbye.js")?,
     );
-    store.register_module("nice".to_string(), deno_core::resolve_path("./goodbye.js")?);
+    store.register_module("keys".to_string(), deno_core::resolve_path("./keys.js")?);
 
     let state = IsolateManager {
         running: Rc::new(RefCell::new(HashMap::new())),

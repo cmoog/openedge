@@ -15,7 +15,7 @@ use crate::runtime::runtime::{Permissions, Runtime};
 pub async fn run_usercode(main_module: ModuleSpecifier, port: u16) -> Result<(), AnyError> {
     let mut worker = instance(main_module.clone(), port)?;
 
-    let region = std::env::var("REGION").unwrap_or_else(|_| "UNKNOWN".to_string());
+    let region = std::env::var("FLY_REGION").unwrap_or_else(|_| "UNKNOWN".to_string());
     let env_vars = vec![("REGION", region.as_str())];
 
     let module_wrapper = loader::new_wrapper(&main_module, &env_vars, port);

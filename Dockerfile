@@ -17,4 +17,5 @@ FROM rust:1.64-slim
 COPY --from=builder /openedge/target/release/openedge /bin/openedge
 COPY ./hello.js ./
 COPY ./goodbye.js ./
+COPY ./keys.js ./
 CMD [ "/bin/openedge" ]

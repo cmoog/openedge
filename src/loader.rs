@@ -26,7 +26,8 @@ Deno.serve(async (req) => {{
     try {{
         const resp = await worker.fetch(req, {{{}}})
         return resp
-    }} catch {{
+    }} catch(e) {{
+        console.log(e)
         return new Response(\"internal server error\\n\", {{ status: 500 }})
     }}
 }}, {{

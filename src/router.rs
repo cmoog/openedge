@@ -8,10 +8,14 @@ pub async fn resolve_to_proxy(
     mut state: IsolateManager,
     req: &Request<Body>,
 ) -> Result<String, Error> {
-    let host_slug = req
-        .headers()
-        .get("host")
-        .ok_or(anyhow!("\"host\" header not found"))?
+    let headers = req.headers();
+    let header_value = match headers.get(":authority") {
+        Some(a) => a,
+        None => headers.get("host").ok_or(anyhow!(
+            "neither \"host\" nor \":authority\" found in header"
+        ))?,
+    };
+    let host_slug = header_value
         .to_str()?
         .split('.')
         .next()
